@@ -1,8 +1,11 @@
 """Human facial landmark detector based on Convolutional Neural Network."""
 import cv2
 import numpy as np
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 import tensorflow as tf
 from tensorflow import keras
+
 
 
 class FaceDetector:
@@ -176,4 +179,4 @@ class MarkDetector:
         """Draw mark points on image"""
         for mark in marks:
             cv2.circle(image, (int(mark[0]), int(
-                mark[1])), 1, color, -1, cv2.LINE_AA)
+                mark[1])), 2, color, 2, cv2.LINE_AA)
