@@ -232,6 +232,9 @@ def _add_info(path, npimg, pyr, kps, tag, path_list, npimg_list, pyr_list, landm
     landmark2D_list.append( kps)
     tag_list.append( tag )
 
+#def _translate2globalscale(landmarks_2D, bbox_list[0] ):
+    #landmarks_2D = landmarks_2D/112.0 * 
+
 
 def Qualitycheck_POSE( Valid_dir, inValid_dir, fd_model, lmk_model, pitch_threshold=(20,-20), yaw_threshold=25, visualize=False):
     facedetector = FaceDetections(fd_model)
@@ -258,6 +261,8 @@ def Qualitycheck_POSE( Valid_dir, inValid_dir, fd_model, lmk_model, pitch_thresh
             if not landmark.tolist(): continue
             euler_angles_pyr, landmarks_2D = landmarkdetector.pred_euler_angle(landmark)
             valid_pyr_list.append(euler_angles_pyr)
+            print( bbox_list )
+            #_translate2globalscale(landmarks_2D, bbox_list[0] )
             
             if pitch_threshold[0]>euler_angles_pyr[0] and euler_angles_pyr[0]>pitch_threshold[1] and abs(euler_angles_pyr[1])<yaw_threshold:
                 TP_count+=1
