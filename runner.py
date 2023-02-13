@@ -93,11 +93,8 @@ class FaceDetections:
             list_bbox, list_kps = self.det_centerface.detect(image)
         elif self.fd_model == 'blazeface':
             list_bbox, list_kps = self.det_blazeface.detect(image)
-
         return np.asarray(list_bbox).astype(int).tolist()
     
-
-
 
 class LandmarkDetections:
     def __init__(self, lmk_model, lmk_model_list=['scrfd', 'yin_cnn', 'dlib', 'PFLD'] ):
@@ -140,6 +137,7 @@ class LandmarkDetections:
         if self.lmk_model == 'scrfd':
             list_score, list_bbox, pred_landmarks = self.scrfd.detect(face_img)   
             pred_landmarks = np.squeeze(pred_landmarks)
+            #list_bbox = np.sqeueeze(list_bbox)
         elif self.lmk_model == 'yin_cnn':
             pred_landmarks = self.mark_detector.detect_marks(face_img)
             pred_landmarks *= self.img_size
@@ -161,13 +159,13 @@ class LandmarkDetections:
     
     def pred_euler_angle(self, lmks):
         rvec, tvec, euler_angles, landmarks_2D = self.eular_estimator.eular_angles_from_landmarks(lmks)
-        #euler_angles[0] = euler_angles[0]*-1
-        #euler_angles[1] = euler_angles[1]*-1
-
         return euler_angles, landmarks_2D
 
 
-
+def draw_marks(image, marks, color=(255, 255, 255)):
+    """Draw mark points on image"""
+    for mark in marks:
+        cv2.circle(image, (int(mark[0]), int(mark[1])), 1, color, -1, cv2.LINE_AA) 
 
 def load_image_bgr(fn):
     return cv2.imread(fn, cv2.IMREAD_COLOR) # in BGR
@@ -182,14 +180,6 @@ def save_jpeg( savedir, im, is_bgr = True, quality = 100):
 def resize_with_pad(image, 
                     new_shape, 
                     padding_color = (255, 255, 255)):
-    """Maintains aspect ratio and resizes with padding.
-    Params:
-        image: Image to be resized.
-        new_shape: Expected (width, height) of new image.
-        padding_color: Tuple in BGR of padding color
-    Returns:
-        image: Resized image with padding
-    """
     original_shape = (image.shape[1], image.shape[0])
     ratio = float(max(new_shape))/max(original_shape)
     new_size = tuple([int(x*ratio) for x in original_shape])
@@ -225,6 +215,24 @@ def Get_Image_List(data_dir):
     return data_list
 
 
+def Extract_from_list(path_list, npimg_list, pyr_list,landmark2D_list, tag_list, output_dir):
+    os.makedirs(output_dir, exist_ok=True)
+    for path, npimg, pyr, kps, tag in tqdm(zip(path_list, npimg_list, pyr_list, landmark2D_list, tag_list)):
+        bname = splitext(basename(path))[0]  
+        img = load_image_bgr( path )
+        save_jpeg(f'{output_dir}/{tag}_p{pyr[0]:.2f}_y{pyr[1]:.2f}_r{pyr[2]:.2f}-{bname}.jpg', img)
+        #draw_marks(npimg, kps )
+        #save_jpeg(f'{output_dir}/{tag}-p{pyr[0]:.1f}-y{pyr[1]:.1f}-{bname}.jpg', npimg)
+
+
+def _add_info(path, npimg, pyr, kps, tag, path_list, npimg_list, pyr_list, landmark2D_list, tag_list ):
+    path_list.append( path )
+    npimg_list.append( npimg )
+    pyr_list.append( pyr )
+    landmark2D_list.append( kps)
+    tag_list.append( tag )
+
+
 def Qualitycheck_POSE( Valid_dir, inValid_dir, fd_model, lmk_model, pitch_threshold=(20,-20), yaw_threshold=25, visualize=False):
     facedetector = FaceDetections(fd_model)
     landmarkdetector = LandmarkDetections(lmk_model)
@@ -235,16 +243,18 @@ def Qualitycheck_POSE( Valid_dir, inValid_dir, fd_model, lmk_model, pitch_thresh
     multiface_count = 0
     valid_pyr_list = []
     invalid_pyr_list = []
+    path_list, npimg_list, pyr_list, landmark2D_list, tag_list = [], [], [], [], []
+    
     # Valid Images
-    for filename in tqdm(valid_file_list):
+    for filename in tqdm(valid_file_list[:200] ):
         image = load_image_bgr(filename)
         bbox_list = facedetector.inference(image)
-        #print( image.shape)
-        #print( bbox_list )
         if len(bbox_list)==1:  
-            face_img_112, face_img_112_vis = Get_Face_Image(bbox_list, image)
-            #print( 'face_img_112:',face_img_112.shape)
-            landmark = landmarkdetector.inference(face_img_112)
+            if lmk_model == 'scrfd':
+                landmark = landmarkdetector.inference(image)
+            else:
+                face_img_112, face_img_112_vis = Get_Face_Image(bbox_list, image)
+                landmark = landmarkdetector.inference(face_img_112)
             if not landmark.tolist(): continue
             euler_angles_pyr, landmarks_2D = landmarkdetector.pred_euler_angle(landmark)
             valid_pyr_list.append(euler_angles_pyr)
@@ -253,39 +263,44 @@ def Qualitycheck_POSE( Valid_dir, inValid_dir, fd_model, lmk_model, pitch_thresh
                 TP_count+=1
             else:
                 FN_count+=1
+                _add_info(filename, face_img_112, euler_angles_pyr, landmarks_2D, 'FN', path_list, npimg_list, pyr_list, landmark2D_list, tag_list )
             vbbox_count += 1 
-            #if visualize:
-            #    landmarkdetector.draw_marks(face_img_112_tmp, landmarks_2D )
-            #    save_jpeg('mark_out.jpg', face_img_112_tmp)
         elif len(bbox_list)>1:
             multiface_count+=1
             
-
     # InValid Images
-    for filename in tqdm(invalid_file_list):
+    for filename in tqdm(invalid_file_list[:160] ):
         image = load_image_bgr(filename)
         bbox_list = facedetector.inference(image)
-        if len(bbox_list):  
-            face_img_112, face_img_112_vis = Get_Face_Image(bbox_list, image)
-            landmark = landmarkdetector.inference(face_img_112)
+        if len(bbox_list)==1:  
+            if lmk_model == 'scrfd':
+                landmark = landmarkdetector.inference(image)
+            else:
+                face_img_112, face_img_112_vis = Get_Face_Image(bbox_list, image)
+                landmark = landmarkdetector.inference(face_img_112)
             if not landmark.tolist(): continue
             euler_angles_pyr, landmarks_2D = landmarkdetector.pred_euler_angle(landmark)
             invalid_pyr_list.append(euler_angles_pyr)
 
             if pitch_threshold[0]>euler_angles_pyr[0] and euler_angles_pyr[0]>pitch_threshold[1] and abs(euler_angles_pyr[1])<yaw_threshold:
                 FP_count+=1
+                _add_info(filename, face_img_112, euler_angles_pyr, landmarks_2D, 'FP', path_list, npimg_list, pyr_list, landmark2D_list, tag_list )
             else:
                 TN_count+=1
+                _add_info(filename, face_img_112, euler_angles_pyr, landmarks_2D, 'TN', path_list, npimg_list, pyr_list, landmark2D_list, tag_list )
             ivbbox_count += 1
         elif len(bbox_list)>1:
             multiface_count+=1
-    
+        
     with open( f'valid_pyr_list_{fd_model}_{lmk_model}.pkl', 'wb') as vf:
         pickle.dump( valid_pyr_list, vf)
     with open( f'invalid_pyr_list_{fd_model}_{lmk_model}.pkl', 'wb') as ivf:
         pickle.dump( invalid_pyr_list, ivf)
+
+    Extract_from_list(path_list, npimg_list, pyr_list,landmark2D_list, tag_list, args.out )
     Total_amount = len(valid_file_list) + len(invalid_file_list)
     Total_amount_fb = vbbox_count + ivbbox_count
+    print( 'Multiface amount:', multiface_count)
     print( f'Total amount:{Total_amount}, Total_amount_facebox:{Total_amount_fb} ' )
     print( f'vbbox_count/valid_file amount:{vbbox_count}/{len(valid_file_list)}, ivbbox_count/invalid_file amount:{ivbbox_count}/{len(invalid_file_list)} ' )
     print( f'TP_count:{TP_count}, FN_count:{FN_count}, FP_count:{FP_count}, TN_count:{TN_count}' )
@@ -335,7 +350,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument("--img", type=str, default=None)
     parser.add_argument("--src_dir", type=str, default=None)
-    parser.add_argument("-o", type=str, default=None) 
+    parser.add_argument("-o","--out", type=str, default='') 
     parser.add_argument("--fd_model", type=str, default=None, help=fd_model_list )
     parser.add_argument("--lmk_model", type=str, default=None, help=lmk_model_list)    
     parser.add_argument("--iter", action='store_true')
