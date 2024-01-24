@@ -85,24 +85,27 @@ class EulerAngles:
                 [0.000000, -7.415691, 4.070434],  # CHIN # 9 
             ])
         elif lmk_format == '5pts':
+            #'''
             landmarks_3D = np.float32([
                
                 (np.array([5.311432, 5.485328, 3.987654]) + np.array([1.789930, 5.393625, 4.413414]))/2,  # LEFT_EYE_LEFT,  # 37
                 
                 (np.array([-1.789930, 5.393625, 4.413414]) + np.array([-5.311432, 5.485328, 3.987654]))/2,  # RIGHT_EYE_LEFT, # 43
-                [0.00, 2.00845, 6.303745], # NOSE_FRONT (self defined) 
+                [0.00, 1.409845, 6.303745], # NOSE_FRONT (self defined) 
                 [2.774015, -2.080775, 5.048531],  # MOUTH_LEFT, # 49
                 [-2.774015, -2.080775, 5.048531],  # MOUTH_RIGHT, # 55
                 
             ])
-            #landmarks_3D = np.array([
-            #    #(0.0, -330.0, -65.0),        # Chin
-            #    (-225.0, 170.0, -135.0),     # Left eye left corner
-            #    (225.0, 170.0, -135.0),      # Right eye right corner
-            #    (0.0, 0.0, 0.0),             # Nose tip
-            #    (-150.0, -150.0, -125.0),    # Mouth left corner
-            #    (150.0, -150.0, -125.0)      # Mouth right corner
-            #]) / 4.5
+            '''
+            landmarks_3D = np.float32([
+                #(0.0, -330.0, -65.0),        # Chin
+                (-225.0, 170.0, -135.0),     # Left eye left corner
+                (225.0, 170.0, -135.0),      # Right eye right corner
+                (0.0, 0.0, 0.0),             # Nose tip
+                (-150.0, -150.0, -125.0),    # Mouth left corner
+                (150.0, -150.0, -125.0)      # Mouth right corner
+            ]) / 4.5
+            '''
 
         else:
             raise ValueError('lmk_format not exists.')
@@ -149,7 +152,7 @@ class EulerAngles:
                 _ : error -not important-.
         """
         if self.lmk_format == '5pts':
-            _, rvec, tvec = cv2.solvePnP(self.landmarks_3D, landmarks_2D, self.camera_intrensic_matrix, distCoeffs=None, flags=cv2.SOLVEPNP_EPNP)
+            _, rvec, tvec = cv2.solvePnP(self.landmarks_3D, landmarks_2D, self.camera_intrensic_matrix, distCoeffs=None)#, flags=cv2.SOLVEPNP_EPNP)
         else:
             _, rvec, tvec = cv2.solvePnP(self.landmarks_3D, landmarks_2D, self.camera_intrensic_matrix, distCoeffs=None)
         """

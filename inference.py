@@ -6,6 +6,7 @@ python inference.py --real_data --vis
 
 from runner import *
 from runner import _add_info
+import random
 
 
 def inference_single_image(fd_model, lmk_model, filename):
@@ -25,11 +26,13 @@ def inference_single_image(fd_model, lmk_model, filename):
         face_img_112, face_img_112_vis = Get_Face_Image(bbox_list, image)
         landmark = landmarkdetector.inference(face_img_112)
     # check if landmark is empty or not
+    print( 'landmarks:', landmark)
+    print( 'landmarks:', landmark.dtype)
     if not landmark.tolist():
         print( 'landmark not found.')
     else:
         euler_angles_pyr, landmarks_2D = landmarkdetector.pred_euler_angle(landmark)
-        print(euler_angles_pyr)
+        print('pyr:', euler_angles_pyr)
 
 
 def Qualitycheck_POSE( Valid_dir_list, inValid_dir_list, fd_model, lmk_model, pitch_threshold=(25,-25), yaw_threshold=25):
@@ -189,33 +192,34 @@ def extract_depth_real_data_to_list(number_of_user_id=10):
     data_source = '/media/hermes/datashare/che/dataset_depth/real/source/AccessBank/'
     collected_data_list = []
     user_id_list = glob(f'{data_source}/*')
-    for user_id in tqdm(user_id_list[:number_of_user_id]):
+    if number_of_user_id==-1:
+        number_of_user_id = len(user_id_list)
+    for user_id in tqdm(user_id_list[:number_of_user_id], desc='collecting_real_data'):
         session_id_list = glob(f'{user_id}/depthVerified/*')
         for session_id in session_id_list:
             collected_data_list.extend( glob(f'{session_id}/*.jpg'))
     print( 'Total number of files:',len(collected_data_list) )
-    return collected_data_list
+    random.shuffle(collected_data_list)
 
+    return collected_data_list
 
 
 
 if __name__ == '__main__':
     fd_model_list = ['scrfd', 'centeface', 'blazeface', 'opencv']
     lmk_model_list = ['scrfd', 'yin_cnn', 'PFLD']
-    
     parser = ArgumentParser()
     parser.add_argument("--img", type=str, default='')
     parser.add_argument("--VAL_src_dir", nargs='+',  default=[]) #  '/media/hermes/datashare/AWS-DataCollection/NORMAL'
     parser.add_argument("--INVAL_src_dir", nargs='+',  default=[])  # '/media/hermes/datashare/AWS-DataCollection/EXTREME_ANGLE/'
     parser.add_argument("-o","--out", type=str, default='inference_result')  
-    parser.add_argument("--fd_model", type=str, default='blazeface', help=fd_model_list ) # ['scrfd', 'centeface', 'blazeface', 'opencv']
-    parser.add_argument("--lmk_model", type=str, default='PFLD', help=lmk_model_list)  # ['scrfd', 'yin_cnn', 'PFLD']
+    parser.add_argument("--fd_model", type=str, default='scrfd', help=fd_model_list ) # ['scrfd', 'centeface', 'blazeface', 'opencv']
+    parser.add_argument("--lmk_model", type=str, default='scrfd', help=lmk_model_list)  # ['scrfd', 'yin_cnn', 'PFLD']
     parser.add_argument("--iter", action='store_true')
     parser.add_argument("--vis", action='store_true')
     parser.add_argument("--real_data", action='store_true')
     args = parser.parse_args()
     number_of_user_id=250
-
 
     if args.img:
         inference_single_image( args.fd_model, args.lmk_model, filename=args.img)

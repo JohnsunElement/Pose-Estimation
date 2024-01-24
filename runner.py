@@ -9,8 +9,7 @@ from tqdm import tqdm
 from glob import glob
 import sys
 import numpy as np
-import torch
-import torchvision.transforms.transforms as transforms
+
 import pickle
 
 # opencv
@@ -54,10 +53,12 @@ class FaceDetections:
         if fd_model == 'opencv':
             self.mark_detector = MarkDetector() 
         elif fd_model == 'scrfd':
-            self.scrfd = SCRFD( fn_model='/home/john23/WorkSpace/FacePython/det_scrfd/model/scrfd_320.onnx', thresh_score=0.7, thresh_nms=0.4, gpu_idx=0) 
+            self.scrfd = SCRFD( fn_model='/home/john23/WorkSpace/FacePython/det_scrfd/model/scrfd_320.onnx', thresh_score=0.7, thresh_nms=0.4, gpu_idx=0, use_onnxruntime=True) 
         elif fd_model == 'centeface':
             self.det_centerface = CenterFace('/home/john23/WorkSpace/FacePython/alg_align/model/centerface_model.onnx', thresh_score=0.7, thresh_nms=0.3, gpu_idx=0)
         elif fd_model == 'blazeface':
+            import torch
+            import torchvision.transforms.transforms as transforms
             self.device = torch.device("cpu")
             self.det_blazeface = BlazeFace(thresh_score=0.7, thresh_nms=0.3).to(self.device)
             self.det_blazeface.load_model('/home/john23/WorkSpace/FacePython/alg_align/model/blazeface_model.pth', \
@@ -102,7 +103,7 @@ class LandmarkDetections:
         self.img_size = 112
         self.lmk_model = lmk_model
         if self.lmk_model == 'scrfd':
-            self.scrfd = SCRFD( fn_model='/home/john23/WorkSpace/FacePython/det_scrfd/model/scrfd_320.onnx', thresh_score=0.7, thresh_nms=0.4, gpu_idx=0) 
+            self.scrfd = SCRFD( fn_model='/home/john23/WorkSpace/FacePython/det_scrfd/model/scrfd_320.onnx', thresh_score=0.7, thresh_nms=0.4, gpu_idx=0, use_onnxruntime=True) 
             self.eular_estimator = EulerAngles(img_shape=(self.img_size, self.img_size), landmark_format='5pts' ) 
         elif self.lmk_model == 'yin_cnn':
             self.mark_detector = MarkDetector() 
@@ -110,6 +111,8 @@ class LandmarkDetections:
         elif self.lmk_model == 'dlib':
             raise ValueError('dlib not ready')
         elif self.lmk_model == 'PFLD':
+            import torch
+            import torchvision.transforms.transforms as transforms
             self.device = torch.device("cpu")
             self.pfld = PFLD().to(self.device)
             checkpoint = torch.load( '/home/john23/WorkSpace/PFLD-Pytorch-Landmarks/checkpoint/model_weights/weights.pth76.tar', map_location=self.device)
